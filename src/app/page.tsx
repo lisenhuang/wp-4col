@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   closestCorners,
   type DragEndEvent,
+  type DragStartEvent,
   useDroppable,
   useSensor,
   useSensors,
@@ -60,6 +62,10 @@ type PostColumn = {
   id: string;
   label: string;
   posts: WordPressPost[];
+};
+
+type SortableData = {
+  post: WordPressPost;
 };
 
 const fetcher = async (url: string) => {
@@ -117,12 +123,79 @@ const PostSkeleton = () => (
   </div>
 );
 
+type PostCardProps = {
+  post: WordPressPost;
+  hidden?: boolean;
+  elevated?: boolean;
+};
+
+const PostCard = ({ post, hidden = false, elevated = false }: PostCardProps) => {
+  const image = getFeaturedImage(post);
+
+  return (
+    <Card
+      className={cn(
+        "transition hover:shadow-md focus-within:shadow-md",
+        elevated && "shadow-xl",
+        hidden && "opacity-0",
+      )}
+    >
+      <div className="aspect-[4/3] w-full px-6 pt-6">
+        {image ? (
+          <div className="relative h-full w-full overflow-hidden rounded-lg">
+            <Image
+              src={image.src}
+              alt={image.alt}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+              className="rounded-lg object-cover"
+              priority={false}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/40 px-4 text-center">
+            <span className="text-sm font-medium text-muted-foreground">
+              No image available
+            </span>
+            <span className="text-xs text-muted-foreground/80">
+              This WordPress post ships without a featured image.
+            </span>
+          </div>
+        )}
+      </div>
+
+      <CardHeader className="gap-3">
+        <CardTitle className="text-lg">
+          {stripHtml(post.title.rendered)}
+        </CardTitle>
+        <CardDescription className="line-clamp-3 text-sm">
+          {stripHtml(post.excerpt.rendered)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs font-medium uppercase text-muted-foreground">
+          Published {formatDate(post.date)}
+        </p>
+      </CardContent>
+      <CardFooter>
+        <Link
+          href={post.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Read full post →
+        </Link>
+      </CardFooter>
+    </Card>
+  );
+};
+
 type SortablePostCardProps = {
   post: WordPressPost;
 };
 
 const SortablePostCard = ({ post }: SortablePostCardProps) => {
-  const image = getFeaturedImage(post);
   const {
     attributes,
     isDragging,
@@ -130,7 +203,10 @@ const SortablePostCard = ({ post }: SortablePostCardProps) => {
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: getPostId(post) });
+  } = useSortable({
+    id: getPostId(post),
+    data: { post },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -143,65 +219,12 @@ const SortablePostCard = ({ post }: SortablePostCardProps) => {
       style={style}
       className={cn(
         "touch-none",
-        isDragging ? "z-10 cursor-grabbing opacity-80" : "cursor-grab",
+        isDragging ? "z-10 cursor-grabbing" : "cursor-grab",
       )}
       {...attributes}
       {...listeners}
     >
-      <Card
-        className={cn(
-          "transition hover:shadow-md focus-within:shadow-md",
-          isDragging && "shadow-lg",
-        )}
-      >
-        <div className="aspect-[4/3] w-full px-6 pt-6">
-          {image ? (
-            <div className="relative h-full w-full overflow-hidden rounded-lg">
-              <Image
-                src={image.src}
-                alt={image.alt}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                className="rounded-lg object-cover"
-                priority={false}
-              />
-            </div>
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/40 px-4 text-center">
-              <span className="text-sm font-medium text-muted-foreground">
-                No image available
-              </span>
-              <span className="text-xs text-muted-foreground/80">
-                This WordPress post ships without a featured image.
-              </span>
-            </div>
-          )}
-        </div>
-
-        <CardHeader className="gap-3">
-          <CardTitle className="text-lg">
-            {stripHtml(post.title.rendered)}
-          </CardTitle>
-          <CardDescription className="line-clamp-3 text-sm">
-            {stripHtml(post.excerpt.rendered)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs font-medium uppercase text-muted-foreground">
-            Published {formatDate(post.date)}
-          </p>
-        </CardContent>
-        <CardFooter>
-          <Link
-            href={post.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            Read full post →
-          </Link>
-        </CardFooter>
-      </Card>
+      <PostCard post={post} hidden={isDragging} />
     </div>
   );
 };
@@ -264,6 +287,11 @@ export default function Home() {
   const [columns, setColumns] = useState<PostColumn[]>(() =>
     createEmptyColumns(),
   );
+  const [activePost, setActivePost] = useState<WordPressPost | null>(null);
+  const [activeCardSize, setActiveCardSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!data) {
@@ -313,6 +341,30 @@ export default function Home() {
     });
   }, [data]);
 
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    const data = active.data.current as SortableData | undefined;
+
+    if (data?.post) {
+      setActivePost(data.post);
+    }
+
+    const { initial } = active.rect.current;
+
+    setActiveCardSize(
+      initial
+        ? {
+            width: initial.width,
+            height: initial.height,
+          }
+        : null,
+    );
+  };
+
+  const handleDragCancel = () => {
+    setActivePost(null);
+    setActiveCardSize(null);
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
@@ -324,6 +376,7 @@ export default function Home() {
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over) {
+      handleDragCancel();
       return;
     }
 
@@ -409,6 +462,9 @@ export default function Home() {
 
       return updatedColumns;
     });
+
+    setActivePost(null);
+    setActiveCardSize(null);
   };
 
   return (
@@ -448,6 +504,8 @@ export default function Home() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragCancel={handleDragCancel}
             onDragEnd={handleDragEnd}
           >
             <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
@@ -455,6 +513,23 @@ export default function Home() {
                 <Column key={column.id} column={column} />
               ))}
             </section>
+            <DragOverlay>
+              {activePost ? (
+                <div
+                  className="pointer-events-none touch-none"
+                  style={
+                    activeCardSize
+                      ? {
+                          width: activeCardSize.width,
+                          height: activeCardSize.height,
+                        }
+                      : undefined
+                  }
+                >
+                  <PostCard post={activePost} elevated />
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         ) : (
           <section className="grid place-items-center rounded-xl border border-dashed p-10 text-center">
