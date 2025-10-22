@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## WordPress News Explorer 📰
 
-## Getting Started
+A modern Next.js app that fetches the latest posts from the official WordPress.org News feed and lets you organize them across four columns with smooth drag‑and‑drop.
 
-First, run the development server:
+- Video walkthrough: ▶️ https://wp-4col.vercel.app/introduction.mp4
+
+### ✨ Features
+- Four‑column layout with drag‑and‑drop (dnd‑kit)
+- Live data from WordPress.org REST API (`/wp-json/wp/v2/posts?_embed`)
+- Responsive, image‑rich cards with publication dates
+- Fast client caching and refetch using SWR
+- Server route with revalidation for stable fetching
+- Built with Next.js 15, React 19, Tailwind CSS v4, and TypeScript
+
+### 🧭 How It Works
+- API route: `src/app/api/posts/route.ts` fetches from WordPress and returns JSON with a 5‑minute revalidate window.
+- UI: `src/app/page.tsx` uses SWR to call `/api/posts`, shows posts in four columns, and enables drag‑and‑drop with dnd‑kit.
+- Media: Featured images are read from the embedded media in each post when available.
+
+### 🚀 Getting Started
+Requirements: Node 18+ and a package manager (pnpm recommended).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install deps
+pnpm install
+
+# Start dev server
 pnpm dev
-# or
-bun dev
+
+# Open the app
+open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 🧩 Tech Stack
+- Next.js 15 (App Router)
+- React 19
+- TypeScript
+- SWR
+- dnd‑kit
+- Tailwind CSS v4
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 📁 Project Structure
+- `src/app/page.tsx` — Main page, SWR data fetching, DnD UI
+- `src/app/api/posts/route.ts` — Server route proxying WordPress News API
+- `src/components/ui/card.tsx` — UI Card primitives
+- `src/lib/utils.ts` — Utility helpers
+- `public/` — Static assets (including `introduction.mp4`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 📝 Notes
+- The app fetches from the public WordPress.org News API and requires no API keys.
+- Drag cards between or within columns; click a card to read the full post on wordpress.org.
 
-## Learn More
+### ☁️ Deploy
+- Ideal target: Vercel. Push your repo and import it on Vercel — defaults work out of the box for Next.js 15.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Enjoy exploring WordPress news in a clean, draggable layout! 🎯
